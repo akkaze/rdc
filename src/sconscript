@@ -1,0 +1,39 @@
+import os
+from glob import glob
+import os.path as osp
+import subprocess
+
+Import('env')
+Import('with_python')
+Import('bin_dir')
+
+env = env.Clone()
+
+def collect_src_files(root_path):
+    src_files = []
+    for root, dirs, files in os.walk(root_path):
+        for dir in dirs:
+            if 'frontend' not in dir:
+                dir_abs_path = osp.join(root, dir)
+                src_files += Glob(osp.join(dir_abs_path, '*.cc'))
+                src_files += Glob(osp.join(dir_abs_path, '*/*.cc'))
+    return src_files
+
+srcs = collect_src_files(os.getcwd())
+
+if env['LIBRARY_TYPE'] == 'static':
+    env.StaticLibrary(osp.join(bin_dir, 'lib', 'rdc'), srcs)
+else:
+    env.SharedLibrary(osp.join(bin_dir, 'lib', 'rdc'), srcs)
+
+if with_python:
+    py_ext_suffix = subprocess.check_output(
+        ['python-config', '--extension-suffix'])
+    py_ext_suffix = py_ext_suffix.decode('utf-8').strip()
+    frontend_srcs = Glob(os.path.join(os.getcwd(), 'frontend/*.cc'))
+    env.SharedLibrary(
+        osp.join(bin_dir, 'lib', 'pyrdc' + py_ext_suffix),
+        frontend_srcs,
+        LIBS=['rdc'],
+        LIBPATH=osp.join(bin_dir, 'lib'),
+        SHLIBPREFIX='')

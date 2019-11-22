@@ -1,0 +1,16 @@
+import os
+import os.path as osp
+Import('env')
+Import('bin_dir')
+env = env.Clone()
+
+test_srcs = Glob(os.path.join(os.getcwd(), './*.cc'))
+
+for test_src in test_srcs:
+    test_name = 'test_{}'.format(os.path.basename(str(test_src)).split('.')[0])
+    env.Program(
+        test_name,
+        test_src,
+        LIBS=['rdc', 'pthread', 'dl'],
+        LIBPATH=osp.join(bin_dir, 'lib'),
+        RPATH=os.path.join(os.getcwd(), osp.join(bin_dir, 'lib')))

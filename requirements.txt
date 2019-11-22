@@ -1,0 +1,8 @@
+six==1.11.0
+loguru==0.2.3
+psutil==5.4.7
+numpy==1.15.2
+setuptools==39.2.0
+scipy==1.1.0
+docutils==0.14
+libtmux==0.8.0

@@ -1,0 +1,106 @@
+import os
+import os.path as osp
+import subprocess
+use_rdma = False
+with_fpic = True
+with_python = True
+# Set our required libraries
+libraries = []
+library_paths = []
+cpp_defines = [('LOGGING_WITH_STREAMS', 1), ('LOGGING_REPLACE_GLOG',),
+               ('RDC_USE_BASE',)]
+cpp_flags = [
+    '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-unused-function',
+    '-Wno-braced-scalar-init', '-Wno-unused-private-field'
+]
+cxx_flags = ['-std=c++11']
+cpp_paths = [os.path.join(os.getcwd(), 'include')]
+ld_flags = []
+if use_rdma:
+    libriaries.append('-libverbs')
+    cpp_defines.append(('RDC_USE_RDMA', 1))
+if with_fpic:
+    cpp_flags.append('-fPIC')
+
+
+def get_dll_name(dll_fullpath):
+    return dll_fullpath[3:-3]
+
+
+if with_python:
+    from distutils import sysconfig
+    cfg_var = sysconfig.get_config_vars()
+    libpy_dir = osp.join(cfg_var['LIBDIR'], cfg_var['LIBPL'])
+    libpy = get_dll_name(cfg_var['LDLIBRARY'])
+    py_inc_dir = cfg_var['INCLUDEPY']
+    libraries.append(libpy)
+    library_paths.append(libpy_dir)
+    cpp_paths.append(py_inc_dir)
+    cpp_paths.append(osp.join(os.getcwd(), "extlib/pybind11/include"))
+    cpp_defines.append(('RDC_WITH_PYTHON', 1))
+
+# define the attributes of the build environment shared between
+# both the debug and release builds
+vars = Variables(None, ARGUMENTS)
+vars.Add(
+    EnumVariable(
+        'BUILD_TYPE',
+        'type of build to use',
+        'debug',
+        allowed_values=('debug', 'release', 'optimized')))
+vars.Add(
+    EnumVariable(
+        'LIBRARY_TYPE',
+        'type of build to use',
+        'static',
+        allowed_values=('static', 'dynamic')))
+env = Environment(variables=vars)
+env.Append(LIBS=libraries)
+env.Append(LIBPATH=library_paths)
+env.Append(CPPPATH=cpp_paths)
+env.Append(CPPDEFINES=cpp_defines)
+env.Append(CPPFLAGS=cpp_flags)
+env.Append(CXXFLAGS=cxx_flags)
+
+env['ENV']['TERM'] = os.environ['TERM']
+
+env['CC'] = 'clang-6.0'
+env['CXX'] = 'clang++-6.0'
+
+build_type = env['BUILD_TYPE']
+if build_type == 'debug':
+    env.Append(CPPFLAGS=['-g', '-O0'])
+library_type = env['LIBRARY_TYPE']
+env.Append(CPPDEFINES=[build_type.upper()])
+
+env['VARIANT_DIR'] = Dir("build")
+env['SOURCE_DIR'] = Dir("src")
+
+root_dir = os.getcwd()
+build_dir = osp.join(os.getcwd(), 'build')
+
+env.VariantDir(osp.join(build_dir, build_type, 'src'), 'src', duplicate=1)
+env.VariantDir(osp.join(build_dir, build_type, 'test'), 'test', duplicate=1)
+env.VariantDir(osp.join(build_dir, build_type, 'perf'), 'perf', duplicate=1)
+
+bin_dir = osp.join(build_dir, build_type)
+env.SConscript(
+    osp.join(bin_dir, 'src', 'sconscript'),
+    src_dir='src',
+    exports={
+        'env': env,
+        'with_python': with_python,
+        'bin_dir': bin_dir,
+    })
+env.SConscript(
+    osp.join(bin_dir, 'test', 'sconscript'),
+    exports={
+        'env': env,
+        'bin_dir': bin_dir
+    })
+env.SConscript(
+    osp.join(bin_dir, 'perf', 'sconscript'),
+    exports={
+        'env': env,
+        'bin_dir': bin_dir
+    })
